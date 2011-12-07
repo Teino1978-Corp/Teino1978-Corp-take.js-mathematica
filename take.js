@@ -1,13 +1,22 @@
 // This is a port of an old scheme implementation of a Mathematica style 'Take' function 
-// of course we don't benefit from the generics etc. of Mathematica, but it's still a useful/expressive function
+// (https://gist.github.com/379285)
 // 
-// Takes the same arguments documented here: http://reference.wolfram.com/mathematica/ref/Take.html
-//
-// Converting `Take` to a Type.js MultiMethod (https://github.com/sharkbrainguy/type.js/blob/master/multimethods.js)
-// is left as an excercise to the reader
+// It takes the same arguments documented here: http://reference.wolfram.com/mathematica/ref/Take.html
+// 
+//     `take(arr, n);` returns the first `n` elements of `arr`
+//     `take(arr, -n);` returns the last `n` elements of `arr`
+//     `take(arr, [m, n]);` returns elements `m` through `n` of `arr`
+//     `take(arr, pat1, pat2, ...)` gives a nested array in which elements specified by `pat-i` are 
+//                                  taken at level i in arr
+// 
+// See the tests at the bottom for examples.
+// 
+// Converting `take` to a Type.js MultiMethod is left as an excercise to the reader
+// (https://github.com/sharkbrainguy/type.js/blob/master/multimethods.js) 
+
 var take;
 (function () {
-var _take, take1, slice, index, step_through, assert, type, toString, $throw, $slice;
+var _take, take1, slice, index, step_through, assert, type, toString, $throw, $slice, $map;
 
 // (define (Take source . patterns)
 //   (if (= (length patterns) 1)
@@ -20,20 +29,20 @@ take = function (source/*, patterns...*/) {
     return _take(source, patterns);
 };
 
-take.monkeyPatch = function () {
-    Array.prototype.take = function () {
-        return _take(this, $slice.call(arguments));
-    };
-};
-
 _take = function (source, patterns) {
     var _first = take1(source, patterns[0]),
         rest = patterns.slice(1);
 
     return patterns.length === 1 ? _first 
-        :  _first.map(function (source) {
+        :  $map.call(_first, function (source) {
                 return _take(source, rest);
            });
+};
+
+take.monkeyPatch = function () {
+    Array.prototype.take = function () {
+        return _take(this, $slice.call(arguments));
+    };
 };
 
 // (define (Take1 source pattern)
@@ -135,37 +144,56 @@ $throw = function (Type, message) {
     throw new Type(message);
 };
 
+$map = [].map || function (fn, ctx) {
+    var i = this.length, result = new Array(i);
+    while (i--) result[i] = fn.call(ctx, this[i], i, this);
+    return result;
+};
+
 // Tests
-if (typeof require && (assert = require('assert'))) {
-    // (Take '(a b c d) 2) ; -> '(a b)
+if (typeof require == 'function' && (assert = require('assert'))) {
+    // Takes the first 2 elements
     assert.deepEqual(take(['a', 'b', 'c', 'd'], 2), 
                      ['a', 'b']);
 
-    // (Take '(a b c d) -2) ; -> '(c d)
-    assert.deepEqual(take(['a', 'b', 'c', 'd'], -2), ['c', 'd']);
+    // Takes the last 2 elements
+    assert.deepEqual(take(['a', 'b', 'c', 'd'], -2),
+                     ['c', 'd']);
 
-    // (Take '(a b c d) '(1 3)) ; -> '(a b c)
-    assert.deepEqual(take(['a', 'b', 'c', 'd'], [1, 3]), ['a', 'b', 'c']);
+    // Takes the 1st element through to the 3rd element
+    assert.deepEqual(take(['a', 'b', 'c', 'd'], [1, 3]),
+                     ['a', 'b', 'c']);
 
-    // (Take '(a b c d) '(1 -1 2)) ; -> '(a c)
+    // Takes the 1st and every 2nd through to the 2nd to last
     assert.deepEqual(take(['a', 'b', 'c', 'd'],
                           [1, -1, 2]),
                      ['a', 'c']);
 
-    // (Take '((a b c d) (1 2 3 4) (5 6 7 8)) 2 2) ;-> ((a b) (1 2))
+    // Takes a 2x2 region from a 2D matrix
     assert.deepEqual(take([['a', 'b', 'c', 'd'],
-                           [1, 2, 3, 4],
-                           [5, 6, 7, 8]], 
+                           [ 1,   2,   3,   4],
+                           [ 5,   6,   7,   8]], 
                            
                            2, 2),
-                     [['a', 'b'], [1, 2]]);
+                     [['a', 'b'],
+                      [ 1,   2]]);
 
-    // (Take '((11 12 13) (21 22 23) (31 32 33)) 'All 2) ;-> ((11 12) (21 22) (31 32))
-    assert.deepEqual(take([[11, 12, 13], [21, 22, 23], [31, 32, 33]], 'All', 2), 
-                     [[11, 12], [21, 22], [31, 32]]);
+    // Takes 2 columns from a 2D matrix 
+    assert.deepEqual(take([[11, 12, 13],
+                           [21, 22, 23], 
+                           [31, 32, 33]],
+                          'All', 2),
 
-    // (Take '((11 12 13) (21 22 23) (31 32 33)) 2 -1) ;-> ((13) (23))
-    assert.deepEqual(take([[11, 12, 13], [21, 22, 23], [31, 32, 33]], 2, -1),
-                     [[13], [23]]);
+                     [[11, 12], 
+                      [21, 22],
+                      [31, 32]]);
+
+    // Take a 2x1 region from the "top-right" corner of a 2D matrix
+    assert.deepEqual(take([[11, 12, 13],
+                           [21, 22, 23], 
+                           [31, 32, 33]], 
+                          2, -1),
+                     [[13],
+                      [23]]);
 }
 }());
