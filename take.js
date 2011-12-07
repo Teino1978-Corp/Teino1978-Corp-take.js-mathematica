@@ -62,7 +62,7 @@ take1 = function (source, pattern) {
     if (_type === 'string') {
         return pattern === 'All'  ? source
             :  pattern === 'None' ? []
-            :  $throw(TypeError);
+            :  $throw(TypeError, "Illegal pattern: " + pattern);
     }
 
     if (_type === 'array') {
