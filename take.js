@@ -57,15 +57,16 @@ take.monkeyPatch = function () {
 //               (slice source 1 index))]))
 
 take1 = function (source, pattern) {
-    var _type = type(pattern), len, i, first, last, step;
+    var len, i, first, last, step;
 
-    if (_type === 'string') {
+    switch (type(pattern)) {
+
+    case 'string':
         return pattern === 'All'  ? source
             :  pattern === 'None' ? []
             :  $throw(TypeError, "Illegal pattern: " + pattern);
-    }
 
-    if (_type === 'array') {
+    case 'array':
         len = pattern.length;
         
         first = i = pattern[0]; 
@@ -76,14 +77,15 @@ take1 = function (source, pattern) {
             :  len === 2 ? slice(source, first, last)
             :  len === 3 ? step_through(slice(source, first, last), step)
             :  $throw(TypeError, "Illegal pattern: " + pattern);
-    }
 
-    if (_type === 'number') {
+    case 'number':
         return pattern < 0 ? slice(source, pattern)
             :  slice(source, 1, pattern);
-    }
 
-    throw new TypeError("Illegal pattern: " + pattern);
+    default:
+        throw new TypeError("Illegal pattern: " + pattern);
+
+    }
 };
 
 // (define (slice ls first [last (length ls)])
